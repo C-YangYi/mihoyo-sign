@@ -112,12 +112,12 @@ async function autoSign() {
     config.value = c;
     refreshGameList();
     const ok = results.filter(r => r.signed).length;
-    resultText.value = `✔ 签到成功 ${ok}/${results.length}`;
-    resultTooltip.value = results.map(r => {
-      if (r.error) return `${r.icon} ${r.name}: ❌ ${r.error}`;
-      if (r.alreadyClaimed) return `${r.icon} ${r.name}: 今日已签到(连续${r.streak}天)`;
-      return `${r.icon} ${r.name}: ✅ 签到成功(连续${r.streak}天)`;
-    }).join('\n');
+    // resultText.value = `✔ 签到成功 ${ok}/${results.length}`;
+    // resultTooltip.value = results.map(r => {
+    //   if (r.error) return `${r.icon} ${r.name}: ❌ ${r.error}`;
+    //   if (r.alreadyClaimed) return `${r.icon} ${r.name}: 今日已签到(连续${r.streak}天)`;
+    //   return `${r.icon} ${r.name}: ✅ 签到成功(连续${r.streak}天)`;
+    // }).join('\n');
   } catch (err) {
     resultError.value = true;
     resultText.value = err.message;

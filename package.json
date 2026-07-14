@@ -5,15 +5,47 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite build && electron .",
-    "build": "vite build && electron-builder",
+    "build:win": "vite build && electron-builder --win",
+    "build:mac": "vite build && electron-builder --mac",
+    "build:all": "vite build && electron-builder --win --mac",
     "vite:dev": "vite"
   },
+  "build": {
+    "appId": "com.signmiao.app",
+    "productName": "签到喵",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "src/assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "src/assets/icon.icns"
+    },
+    "dmg": {
+      "title": "签到喵"
+    }
+  },
   "dependencies": {
-    "electron": "^33.0.0",
+   
     "vue": "^3.5.39"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.4",
-    "vite": "^6.4.3"
+    "electron-builder": "^26.15.3",
+    "vite": "^6.4.3",
+     "electron": "^33.0.0"
   }
 }
