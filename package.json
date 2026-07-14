@@ -1,0 +1,13 @@
+{
+  "name": "mihoyo-sign",
+  "version": "1.0.0",
+  "description": "MiHoYo daily sign-in app for Genshin Impact, Honkai: Star Rail, and Zenless Zone Zero",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "dependencies": {
+    "electron": "^33.0.0"
+  }
+}
