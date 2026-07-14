@@ -1,9 +1,9 @@
 <template>
   <div class="app">
-    <div class="header">MiHoYo Sign</div>
+    <div class="header">米哈游自动签到</div>
     <div class="content">
       <GameList :games="gameStatus" />
-      <SignButton :disabled="!configured || signing" :signing="signing" @sign="doSign" />
+      <SignButton :disabled="!configured || signing || signedToday" :signing="signing" :label="btnLabel" @sign="doSign" />
       <div class="result" :class="{ error: resultError }" :title="resultTooltip">{{ resultText }}</div>
     </div>
     <div class="footer">
@@ -32,6 +32,8 @@ const STORAGE_KEY = 'mihoyo-sign-config';
 
 const showSettings = ref(false);
 const signing = ref(false);
+const signedToday = ref(false);
+const btnLabel = ref('一键签到所有游戏');
 const resultText = ref('');
 const resultError = ref(false);
 const resultTooltip = ref('');
@@ -40,6 +42,10 @@ const config = ref(loadConfig());
 
 function loadConfig() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+
+function getToday() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 const gameStatus = reactive({});
@@ -55,15 +61,70 @@ function refreshGameList() {
   Object.keys(GAME_DEFS).forEach(k => {
     gameStatus[k] = {
       ...GAME_DEFS[k],
-      configured: configured.value && !!accounts[k],
+      uid: accounts[k]?.uid || null,
     };
   });
+  if (c.lastSignDate === getToday()) {
+    signedToday.value = true;
+    btnLabel.value = '今日已签到';
+  }
+}
+
+// Auto-sign on startup if configured and not signed today
+async function autoSign() {
+  const c = config.value;
+  if (!configured.value) return;
+  if (c.lastSignDate === getToday()) {
+    signedToday.value = true;
+    btnLabel.value = '今日已签到';
+    return;
+  }
+  // Auto sign
+  signing.value = true;
+  btnLabel.value = '正在签到...';
+  resultText.value = '';
+  try {
+    const cookie = String(c.cookie);
+    const accounts = JSON.parse(JSON.stringify(c.accounts));
+    const results = await window.signAPI.signInAll(cookie, accounts);
+    const expired = results.some(r => r.expired);
+    if (expired) {
+      localStorage.removeItem(STORAGE_KEY);
+      config.value = {};
+      signedToday.value = false;
+      btnLabel.value = '一键签到所有游戏';
+      refreshGameList();
+      resultError.value = true;
+      resultText.value = 'Cookie 已过期，请重新设置';
+      return;
+    }
+    c.lastSignDate = getToday();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
+    signedToday.value = true;
+    btnLabel.value = '今日已签到';
+    config.value = c;
+    const ok = results.filter(r => r.signed).length;
+    resultText.value = `✔ 签到成功 ${ok}/${results.length}`;
+    resultTooltip.value = results.map(r => {
+      if (r.error) return `${r.icon} ${r.name}: ❌ ${r.error}`;
+      if (r.alreadyClaimed) return `${r.icon} ${r.name}: 今日已签到(连续${r.streak}天)`;
+      return `${r.icon} ${r.name}: ✅ 签到成功(连续${r.streak}天)`;
+    }).join('\n');
+  } catch (err) {
+    resultError.value = true;
+    resultText.value = err.message;
+  } finally {
+    signing.value = false;
+  }
 }
 
 function onSaved() {
   config.value = loadConfig();
+  signedToday.value = false;
+  btnLabel.value = '正在签到...';
   refreshGameList();
   showSettings.value = false;
+  autoSign();
 }
 
 async function doSign() {
@@ -74,7 +135,6 @@ async function doSign() {
   resultTooltip.value = '';
 
   try {
-    // Clone to plain objects to avoid IPC serialization issues
     const cookie = String(c.cookie);
     const accounts = JSON.parse(JSON.stringify(c.accounts));
     const results = await window.signAPI.signInAll(cookie, accounts);
@@ -82,12 +142,21 @@ async function doSign() {
     if (expired) {
       localStorage.removeItem(STORAGE_KEY);
       config.value = {};
+      signedToday.value = false;
+      btnLabel.value = '一键签到所有游戏';
       refreshGameList();
       resultError.value = true;
       resultText.value = 'Cookie 已过期，正在打开登录窗口...';
       showSettings.value = true;
       return;
     }
+    // Record today's sign-in
+    c.lastSignDate = getToday();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
+    signedToday.value = true;
+    btnLabel.value = '今日已签到';
+    config.value = c;
+
     const ok = results.filter(r => r.signed).length;
     resultError.value = ok !== results.length;
     resultText.value = `✔ 签到成功 ${ok}/${results.length}`;
@@ -105,17 +174,18 @@ async function doSign() {
 }
 
 refreshGameList();
+autoSign();
 </script>
 
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif; background: #1a1a2e; color: #e0e0e0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif; background: #f5f6fa; color: #333; }
 .app { height: 100vh; display: flex; flex-direction: column; -webkit-app-region: drag; }
-.header { background: #16213e; padding: 16px 20px; text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 1px; border-bottom: 1px solid #0f3460; }
+.header { background: #fff; padding: 16px 20px; text-align: center; font-size: 18px; font-weight: 700; color: #333; border-bottom: 2px solid #2d8cf0; }
 .content { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 10px; -webkit-app-region: no-drag; }
-.result { margin-top: 8px; font-size: 14px; text-align: center; min-height: 24px; color: #52b788; }
-.result.error { color: #e76f6f; }
-.footer { padding: 12px 20px; border-top: 1px solid #0f3460; -webkit-app-region: no-drag; }
-.btn-settings { width: 100%; padding: 10px; font-size: 14px; background: transparent; color: #888; border: 1px solid #0f3460; border-radius: 8px; cursor: pointer; }
-.btn-settings:hover { color: #e0e0e0; border-color: #533483; }
+.result { margin-top: 8px; font-size: 14px; text-align: center; min-height: 24px; color: #2d8cf0; }
+.result.error { color: #e74c3c; }
+.footer { padding: 12px 20px; border-top: 1px solid #e8e8e8; background: #fff; -webkit-app-region: no-drag; }
+.btn-settings { width: 100%; padding: 10px; font-size: 14px; background: transparent; color: #999; border: 1px solid #e8e8e8; border-radius: 8px; cursor: pointer; }
+.btn-settings:hover { color: #2d8cf0; border-color: #2d8cf0; }
 </style>
