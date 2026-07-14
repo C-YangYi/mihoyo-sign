@@ -1,10 +1,9 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const { signInAll, fetchGameAccounts } = require('./sign-api');
 
 let mainWindow;
 let loginWindow = null;
-let capturedCookies = {};
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -19,19 +18,19 @@ function createWindow() {
     },
   });
   mainWindow.setMenuBarVisibility(false);
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+  mainWindow.webContents.openDevTools()
 }
 
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => app.quit());
 
-// --- Login window ---
+// ---- Login window ----
 ipcMain.handle('open-login-window', async () => {
   if (loginWindow && !loginWindow.isDestroyed()) {
     loginWindow.focus();
     return;
   }
-  capturedCookies = {};
 
   loginWindow = new BrowserWindow({
     width: 430,
@@ -40,29 +39,31 @@ ipcMain.handle('open-login-window', async () => {
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
   loginWindow.setMenuBarVisibility(false);
-
-  const ses = loginWindow.webContents.session;
-  ses.webRequest.onHeadersReceived((details, callback) => {
-    const headers = details.responseHeaders;
-    const setCookie = headers['set-cookie'] || headers['Set-Cookie'];
-    if (setCookie) {
-      for (const h of setCookie) {
-        const m = h.match(/^([^=]+)=([^;]*)/);
-        if (m) capturedCookies[m[1]] = m[2];
-      }
-    }
-    callback({ responseHeaders: headers });
-  });
-
   loginWindow.loadURL('https://user.miyoushe.com/');
   loginWindow.on('closed', () => { loginWindow = null; });
 });
 
 ipcMain.handle('get-login-cookies', async () => {
-  const entries = Object.entries(capturedCookies);
-  const cookie = entries.map(([k, v]) => `${k}=${v}`).join('; ');
-  const names = entries.map(([k]) => k);
-  return { cookie, names };
+  if (!loginWindow || loginWindow.isDestroyed()) return { cookie: '', names: [], allNames: [] };
+
+  const ses = loginWindow.webContents.session;
+  const cookies = await ses.cookies.get({});
+
+  const relevant = [
+    'ltoken_v2', 'ltuid_v2', 'cookie_token_v2', 'account_id_v2',
+    'ltoken', 'ltuid', 'cookie_token', 'account_id',
+    'account_mid_v2', 'ltmid_v2', 'stoken', 'stuid', 'mid',
+  ];
+  const filtered = cookies.filter(c => relevant.includes(c.name));
+
+  // Deduplicate: keep last occurrence of each cookie name
+  const seen = new Map();
+  for (const c of filtered) seen.set(c.name, c.value);
+  const found = Array.from(seen.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
+
+  const allNames = cookies.map(c => `${c.domain}:${c.name}`);
+
+  return { cookie: found, names: Array.from(seen.keys()), allNames };
 });
 
 ipcMain.handle('close-login-window', async () => {
@@ -70,14 +71,13 @@ ipcMain.handle('close-login-window', async () => {
 });
 
 ipcMain.handle('clear-login-session', async () => {
-  capturedCookies = {};
   if (loginWindow && !loginWindow.isDestroyed()) {
     loginWindow.webContents.session.clearStorageData();
     loginWindow.close();
   }
 });
 
-// --- Sign-in ---
+// ---- Sign-in ----
 ipcMain.handle('fetch-accounts', async (_event, cookie) => {
   return await fetchGameAccounts(cookie);
 });

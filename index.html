@@ -4,72 +4,9 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
   <title>MiHoYo Sign</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; -webkit-app-region: drag; }
-    .header { background: #16213e; padding: 16px 20px; text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 1px; border-bottom: 1px solid #0f3460; }
-    .content { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 10px; -webkit-app-region: no-drag; }
-    .game-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #16213e; border-radius: 8px; border: 1px solid #0f3460; }
-    .game-icon { font-size: 24px; width: 36px; text-align: center; }
-    .game-name { flex: 1; font-size: 15px; }
-    .game-status { font-size: 13px; padding: 4px 10px; border-radius: 12px; }
-    .status-configured { background: #1b4332; color: #52b788; }
-    .status-not-configured { background: #3c1f1f; color: #e76f6f; }
-    .btn-sign-all { margin-top: 12px; padding: 12px; font-size: 16px; font-weight: 600; background: linear-gradient(135deg, #533483, #0f3460); color: #e0e0e0; border: 1px solid #533483; border-radius: 8px; cursor: pointer; letter-spacing: 1px; }
-    .btn-sign-all:hover { opacity: 0.9; }
-    .btn-sign-all:disabled { opacity: 0.5; cursor: not-allowed; }
-    .result-area { margin-top: 8px; font-size: 14px; text-align: center; min-height: 24px; color: #52b788; }
-    .result-area.error { color: #e76f6f; }
-    .footer { padding: 12px 20px; border-top: 1px solid #0f3460; -webkit-app-region: no-drag; }
-    .btn-settings { width: 100%; padding: 10px; font-size: 14px; background: transparent; color: #888; border: 1px solid #0f3460; border-radius: 8px; cursor: pointer; }
-    .btn-settings:hover { color: #e0e0e0; border-color: #533483; }
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; -webkit-app-region: no-drag; }
-    .modal-overlay.active { display: flex; align-items: center; justify-content: center; }
-    .modal { background: #16213e; border: 1px solid #0f3460; border-radius: 10px; padding: 20px; width: 400px; }
-    .modal h2 { font-size: 16px; margin-bottom: 12px; text-align: center; }
-    .modal p { font-size: 13px; color: #aaa; margin-bottom: 12px; line-height: 1.6; }
-    .modal label { display: block; font-size: 13px; margin-bottom: 4px; color: #aaa; }
-    .modal input { width: 100%; padding: 8px 10px; margin-bottom: 12px; background: #1a1a2e; border: 1px solid #0f3460; border-radius: 6px; color: #e0e0e0; font-size: 13px; outline: none; }
-    .modal input:focus { border-color: #533483; }
-    .modal .btn-row { display: flex; gap: 10px; margin-top: 4px; }
-    .btn { padding: 10px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    .btn-primary { flex: 1; background: #533483; color: #e0e0e0; }
-    .btn-primary:hover { background: #6b40a0; }
-    .btn-secondary { background: transparent; color: #888; border: 1px solid #0f3460; }
-    .btn-secondary:hover { color: #e0e0e0; }
-    .btn-block { display: block; width: 100%; margin-bottom: 10px; }
-    .cookie-preview { font-size: 12px; color: #52b788; margin-bottom: 12px; word-break: break-all; max-height: 40px; overflow: hidden; }
-    .cookie-preview.empty { color: #888; }
-    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #533483; border-top-color: #e0e0e0; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 6px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
 </head>
 <body>
-  <div class="header">MiHoYo Sign</div>
-  <div class="content">
-    <div id="gameList"></div>
-    <button class="btn-sign-all" id="btnSignAll">一键签到所有游戏</button>
-    <div class="result-area" id="resultArea"></div>
-  </div>
-  <div class="footer">
-    <button class="btn-settings" id="btnSettings">Cookie 设置</button>
-  </div>
-
-  <div class="modal-overlay" id="modalOverlay">
-    <div class="modal">
-      <h2>Cookie 设置</h2>
-      <p>点击下方按钮打开米游社登录页，登录后回到此窗口点击"获取 Cookie"。</p>
-      <button class="btn btn-primary btn-block" id="btnOpenLogin">打开米游社登录</button>
-      <div class="cookie-preview empty" id="cookiePreview">未获取 Cookie</div>
-      <button class="btn btn-primary btn-block" id="btnGetCookies">获取 Cookie</button>
-      <button class="btn btn-secondary btn-block" id="btnClearSession">清除登录状态</button>
-      <div class="btn-row" style="margin-top:12px;">
-        <button class="btn btn-secondary" id="btnCancel">取消</button>
-        <button class="btn btn-primary" id="btnSave">保存</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="renderer.js"></script>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>

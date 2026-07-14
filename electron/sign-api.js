@@ -1,5 +1,4 @@
-// Sign-in API module for MiHoYo BBS (Chinese region only)
-
+// Sign-in API for MiHoYo BBS (CN only)
 const crypto = require('crypto');
 
 const CN_SIGNIN_SALT = 'LyD1rXqMv2GJhnwdvCBjFOKGiKuLY3aO';
@@ -41,23 +40,34 @@ function buildHeaders(gameKey, cookie) {
 
 async function request(url, options) {
   const { net } = require('electron');
-  const response = await net.fetch(url, {
-    method: options.method || 'GET',
-    headers: options.headers || {},
-    redirect: 'follow',
+  return new Promise((resolve, reject) => {
+    const req = net.request({
+      url,
+      method: options.method || 'GET',
+      redirect: 'follow',
+    });
+    if (options.headers) {
+      Object.entries(options.headers).forEach(([k, v]) => req.setHeader(k, v));
+    }
+    req.on('response', (resp) => {
+      let data = '';
+      resp.on('data', (chunk) => (data += chunk));
+      resp.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error(`HTTP ${resp.statusCode}: ${data.slice(0, 200)}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.end();
   });
-  const text = await response.text();
-  return JSON.parse(text);
 }
 
-/**
- * Auto-fetch game accounts (UID + server) from cookie.
- */
 async function fetchGameAccounts(cookie) {
+  const cleanCookie = cookie.replace(/[\n\r]/g, '').trim();
   const data = await request('https://api-takumi.mihoyo.com/binding/api/getUserGameRolesByCookie', {
     method: 'GET',
     headers: {
-      Cookie: cookie.replace(/[\n\r]/g, '').trim(),
+      Cookie: cleanCookie,
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'x-rpc-app_version': '2.11.1',
       'x-rpc-client_type': '5',
@@ -92,14 +102,14 @@ async function signIn(gameKey, cookie, account) {
     const info = await checkSignIn(gameKey, cookie, account);
     if (info.retcode !== 0) {
       const expired = info.retcode === -100;
-      return { gameKey, name: game.name, icon: game.icon, signed: false, alreadyClaimed: false, streak: 0, error: expired ? 'Cookie 已过期，请重新获取' : (info.message || info.retcode), expired };
+      return { gameKey, name: game.name, icon: game.icon, signed: false, alreadyClaimed: false, streak: 0, error: expired ? 'Cookie 已过期' : (info.message || String(info.retcode)), expired };
     }
     if (info.data.is_sign) {
       return { gameKey, name: game.name, icon: game.icon, signed: true, alreadyClaimed: true, streak: info.data.total_sign_day, error: null };
     }
     const result = await claimReward(gameKey, cookie, account);
     if (result.retcode !== 0 && result.retcode !== -5003) {
-      return { gameKey, name: game.name, icon: game.icon, signed: false, alreadyClaimed: false, streak: 0, error: result.message || result.retcode };
+      return { gameKey, name: game.name, icon: game.icon, signed: false, alreadyClaimed: false, streak: 0, error: result.message || String(result.retcode) };
     }
     return { gameKey, name: game.name, icon: game.icon, signed: true, alreadyClaimed: result.retcode === -5003, streak: result.data?.total_sign_day || 0, error: null };
   } catch (err) {
