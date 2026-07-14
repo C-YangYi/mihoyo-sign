@@ -1,9 +1,10 @@
 <template>
   <div class="app">
-    <div class="header">米哈游自动签到</div>
+    <div class="header">SignMiao</div>
     <div class="content">
       <GameList :games="gameStatus" />
-      <SignButton :disabled="!configured || signing || signedToday" :signing="signing" :label="btnLabel" @sign="doSign" />
+      <SignButton :disabled="!configured || signing || signedToday" :signing="signing" :label="btnLabel"
+        @sign="doSign" />
       <div class="result" :class="{ error: resultError }" :title="resultTooltip">{{ resultText }}</div>
     </div>
     <div class="footer">
@@ -19,13 +20,13 @@ import GameList from './components/GameList.vue';
 import SignButton from './components/SignButton.vue';
 import CookieSettings from './components/CookieSettings.vue';
 import genshin from "./assets/原神.png";
-import starRail  from "./assets/崩铁.png";
+import starRail from "./assets/崩铁.png";
 import zzz from "./assets/绝区零.png";
 
 const GAME_DEFS = {
-  genshin:  { name: '原神', icon: genshin },
+  genshin: { name: '原神', icon: genshin },
   starrail: { name: '崩坏：星穹铁道', icon: starRail },
-  zzz:      { name: '绝区零', icon: zzz },
+  zzz: { name: '绝区零', icon: zzz },
 };
 
 const STORAGE_KEY = 'mihoyo-sign-config';
@@ -58,15 +59,17 @@ const configured = computed(() => {
 function refreshGameList() {
   const c = config.value;
   const accounts = c.accounts || {};
+  const streaks = c.streaks || {};
   Object.keys(GAME_DEFS).forEach(k => {
     gameStatus[k] = {
       ...GAME_DEFS[k],
       uid: accounts[k]?.uid || null,
+      streak: streaks[k] || 0,
     };
   });
   if (c.lastSignDate === getToday()) {
     signedToday.value = true;
-    btnLabel.value = '今日已签到';
+    btnLabel.value = '今日已签到，明天别忘了哟';
   }
 }
 
@@ -76,7 +79,9 @@ async function autoSign() {
   if (!configured.value) return;
   if (c.lastSignDate === getToday()) {
     signedToday.value = true;
-    btnLabel.value = '今日已签到';
+    btnLabel.value = '今日已签到，明天别忘了哟';
+    // Refresh streak data even if already signed
+    refreshStreaks();
     return;
   }
   // Auto sign
@@ -99,10 +104,13 @@ async function autoSign() {
       return;
     }
     c.lastSignDate = getToday();
+    c.streaks = {};
+    results.forEach(r => { if (r.streak) c.streaks[r.gameKey] = r.streak; });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
     signedToday.value = true;
-    btnLabel.value = '今日已签到';
+    btnLabel.value = '今日已签到，明天别忘了哟';
     config.value = c;
+    refreshGameList();
     const ok = results.filter(r => r.signed).length;
     resultText.value = `✔ 签到成功 ${ok}/${results.length}`;
     resultTooltip.value = results.map(r => {
@@ -116,6 +124,21 @@ async function autoSign() {
   } finally {
     signing.value = false;
   }
+}
+
+// Refresh streaks for already-signed-today state
+async function refreshStreaks() {
+  const c = config.value;
+  if (!c.cookie || !c.accounts) return;
+  try {
+    const accounts = JSON.parse(JSON.stringify(c.accounts));
+    const results = await window.signAPI.signInAll(c.cookie, accounts);
+    c.streaks = {};
+    results.forEach(r => { if (r.streak) c.streaks[r.gameKey] = r.streak; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
+    config.value = c;
+    refreshGameList();
+  } catch (_) {}
 }
 
 function onSaved() {
@@ -152,10 +175,13 @@ async function doSign() {
     }
     // Record today's sign-in
     c.lastSignDate = getToday();
+    c.streaks = {};
+    results.forEach(r => { if (r.streak) c.streaks[r.gameKey] = r.streak; });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
     signedToday.value = true;
-    btnLabel.value = '今日已签到';
+    btnLabel.value = '今日已签到，明天别忘了哟';
     config.value = c;
+    refreshGameList();
 
     const ok = results.filter(r => r.signed).length;
     resultError.value = ok !== results.length;
@@ -178,14 +204,76 @@ autoSign();
 </script>
 
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif; background: #f5f6fa; color: #333; }
-.app { height: 100vh; display: flex; flex-direction: column; -webkit-app-region: drag; }
-.header { background: #fff; padding: 16px 20px; text-align: center; font-size: 18px; font-weight: 700; color: #333; border-bottom: 2px solid #2d8cf0; }
-.content { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 10px; -webkit-app-region: no-drag; }
-.result { margin-top: 8px; font-size: 14px; text-align: center; min-height: 24px; color: #2d8cf0; }
-.result.error { color: #e74c3c; }
-.footer { padding: 12px 20px; border-top: 1px solid #e8e8e8; background: #fff; -webkit-app-region: no-drag; }
-.btn-settings { width: 100%; padding: 10px; font-size: 14px; background: transparent; color: #999; border: 1px solid #e8e8e8; border-radius: 8px; cursor: pointer; }
-.btn-settings:hover { color: #2d8cf0; border-color: #2d8cf0; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif;
+  background: #f5f6fa;
+  color: #333;
+}
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-app-region: drag;
+}
+
+.header {
+  background: #000;
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  border-bottom: 2px solid #2d8cf0;
+}
+
+.content {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  -webkit-app-region: no-drag;
+}
+
+.result {
+  margin-top: 8px;
+  font-size: 14px;
+  text-align: center;
+  min-height: 24px;
+  color: #2d8cf0;
+}
+
+.result.error {
+  color: #e74c3c;
+}
+
+.footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e8e8e8;
+  background: #fff;
+  -webkit-app-region: no-drag;
+}
+
+.btn-settings {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  background: transparent;
+  color: #999;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-settings:hover {
+  color: #2d8cf0;
+  border-color: #2d8cf0;
+}
 </style>

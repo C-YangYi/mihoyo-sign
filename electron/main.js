@@ -10,7 +10,7 @@ function createWindow() {
     width: 480,
     height: 620,
     resizable: false,
-    title: 'MiHoYo Sign',
+    title: '签到喵',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

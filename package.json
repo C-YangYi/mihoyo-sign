@@ -1,5 +1,5 @@
 {
-  "name": "mihoyo-sign",
+  "name": "sign-miao",
   "version": "1.0.0",
   "description": "MiHoYo daily sign-in app",
   "main": "electron/main.js",
